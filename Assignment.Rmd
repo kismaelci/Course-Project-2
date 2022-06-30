@@ -1,0 +1,143 @@
+---
+title: "Impact of major weather events on human health and economic consequences"
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+
+How to prevent severe weather events witch have great impact on both public health and economic problems for communities and municipalities is a key concern.
+
+Between 1950 and November 2011, the U.S. National Oceanic and Atmospheric Administration's (NOAA) tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+Results are gathered in a database named [storm data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)[47Mb] and there is also some documentation about the database available at:
+
+National Weather Service [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+
+and 
+
+National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+Our study should answer the questions below:
+    
+Across the United States, which types of events are most harmful with respect to population health?
+
+Across the United States, which types of events have the greatest economic consequences?
+
+## Data Processing
+
+packages necessary 
+
+```{r loading packages, echo=TRUE}
+library(ggplot2)  
+library(plyr) 
+library(dplyr)
+```
+
+loading and inspecting the data
+
+```{r loading data, echo=TRUE}
+StormDataUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(StormDataUrl, "StormData.csv")
+StormData <- read.csv("StormData.csv")
+head(StormData)
+tail(StormData)
+dim(StormData)
+colnames(StormData)
+str(StormData)
+summary(StormData)
+```
+
+Subsetting the data between EVTYPE, HEALTH(FATALITIES, INJURIES) and ECONOMY(PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+
+```{r Subsetting the data, echo=TRUE}
+mysubset <- c( "EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
+myStormData <- StormData[, mysubset]
+head(myStormData)
+tail(myStormData)
+dim(myStormData)
+colnames(myStormData)
+str(myStormData)
+summary(myStormData)
+```
+
+## Results
+
+Across the United States, which types of events are most harmful with respect to population health?
+
+let s first Sort the data to select the 10 greatest
+
+```{r Sorting the data, echo=TRUE}
+sort(table(myStormData$EVTYPE), decreasing = TRUE)[1:10]
+```
+
+now let s convert exp values
+
+```{r conversion, echo=TRUE}
+myStormData$PROPDMGEXP2 <- 1
+myStormData$PROPDMGEXP2[which(myStormData$PROPDMGEXP == "K")] <- 1000
+myStormData$PROPDMGEXP2[which(myStormData$PROPDMGEXP == "M")] <- 1000000
+myStormData$PROPDMGEXP2[which(myStormData$PROPDMGEXP == "B")] <- 1000000000
+```
+
+let s plot fatalities by event type
+
+```{r, echo=TRUE}
+myStormData %>%
+      select(FATALITIES, EVTYPE) %>%
+      group_by(EVTYPE) %>%
+      summarise(SumFATALITIES = sum(FATALITIES)) %>%
+      top_n(n = 8, wt = SumFATALITIES) %>%
+      ggplot(aes(x = SumFATALITIES, y = reorder(x = EVTYPE, X = SumFATALITIES), fill=EVTYPE))+
+      geom_bar(stat = "identity", show.legend = TRUE) +
+      #geom_text(aes(label=SumFATALITIES)) +
+      xlab(label = "FATALITIES") +
+      ylab(label = "EVENT TYPE") +
+      coord_flip() +
+      theme_light()
+```
+
+let s plot injuries by event type
+
+```{r plot, echo=TRUE}
+myStormData %>%
+      select(INJURIES, EVTYPE) %>%
+      group_by(EVTYPE) %>%
+      summarise(SumINJURIES = sum(INJURIES)) %>%
+      top_n(n = 8, wt = SumINJURIES) %>%
+      ggplot(aes(x = SumINJURIES, y = reorder(x = EVTYPE, X = SumINJURIES), fill=EVTYPE))+
+      geom_bar(stat = "identity", show.legend = TRUE) +
+      #geom_text(aes(label=SumINJURIES)) +
+      xlab(label = "INJURIES") +
+      ylab(label = "EVENT TYPE") +
+      coord_flip() +
+      theme_light()
+```
+
+As we can see on pictures, TORNADOS are most harmful with respect to POPULATION HEALTH. We can notice that EXCESSIVE HEAT also give significant results.
+
+Across the United States, which types of events have the greatest economic consequences?
+
+let s plot property damages by event type
+
+```{r, echo=TRUE}
+myStormData %>%
+      select(PROPDMG, PROPDMGEXP2, EVTYPE) %>%
+      group_by(EVTYPE) %>%
+      mutate(SumPROPDMGEXP = (PROPDMG * PROPDMGEXP2)) %>%
+      summarise(SumPROPDMGEXP2 = sum(SumPROPDMGEXP)) %>%
+      top_n(n = 8, wt = SumPROPDMGEXP2) %>%
+      ggplot(aes(x = SumPROPDMGEXP2, y = reorder(x = EVTYPE, X = SumPROPDMGEXP2), fill=EVTYPE))+
+      geom_bar(stat = "identity", show.legend = TRUE) +
+      #geom_text(aes(label=SumFATALITIES)) +
+      xlab(label = "PROPERTY DAMAGE") +
+      ylab(label = "EVENT TYPE") +
+      coord_flip() +
+      theme_light()
+```
+
+For PROPERTY DAMAGES, the top level is reached by FLOOD but it is important to monitor HURRICAN/TYPHOON, TORNADO AND STORM SURGE in that order
